@@ -28,7 +28,7 @@ for line in input_data:
         y_end = int(y.split(".")[-1])
         y_pos += [[y_start, y_end]]
 
-# Find min and max coordinates and create grid
+# Find min and max coordinates and create grid of sand
 min_y, max_y, min_x, max_x = 1000, 0, 1000, 0
 for i in range(len(y_pos)):
     if len(y_pos[i]) == 2:
@@ -44,7 +44,7 @@ for i in range(len(y_pos)):
 
 grid = [["." for _ in range(min_x,max_x+1)] for _ in range(min_y,max_y+1)]
 
-# Scan ground (grid) and fill with sand wherever found
+# Scan ground (grid) and fill with clay wherever found
 for i in range(len(x_pos)):
     if len(x_pos[i]) == 1:
         for y in range(y_pos[i][0], y_pos[i][1]+1):
@@ -52,18 +52,93 @@ for i in range(len(x_pos)):
     elif len(y_pos[i]) == 1:
         for x in range(x_pos[i][0], x_pos[i][1]+1):
             grid[y_pos[i][0]-min_y][x-min_x] = "#"
+grid = [["." for _ in range(min_x,max_x+1)]] + grid
 grid[0][500-min_x] = "+"
-for g in grid:
-    print g
+
+# Find the water type a tile (~ is stil, | is flowing)
+def water_type(grid, row, col):
+    tile = "~"
+    for i in range(1, len(grid)):
+        if grid[row][col+i] == "#":
+            break
+        if grid[row+1][col+i] == "." or grid[row+1][col+i] == "|":
+            tile = "|"
+            break
+    for i in range(1, len(grid)):
+        if grid[row][col-i] == "#":
+            break
+        if grid[row+1][col-i] == "." or grid[row+1][col-i] == "|":
+            tile = "|"
+            break
+    return tile
+
+# From a square, fill horizontally adjacent squres with still or flowing water
+def settle_water(grid, row, col):
+    global sources
+    tile = water_type(grid, row, col)
+    # Then insert still/flowing water
+    for i in range(1, len(grid)-col-1):
+        if ((grid[row+1][col+i] == "#" or grid[row+1][col+i] == "~") 
+                and grid[row][col+i] != "#"):
+            grid[row][col+i] = tile
+        else:
+            if grid[row+1][col+i] == ".":
+                grid[row][col+i] = tile
+                sources += [[row, col+i]]
+            break
+    for i in range(1, len(grid)):
+        if ((grid[row+1][col-i] == "#" or grid[row+1][col-i] == "~") 
+                and grid[row][col-i] != "#"):
+            grid[row][col-i] = tile
+        else:
+            if grid[row+1][col-i] == ".":
+                grid[row][col-i] = tile
+                sources += [[row, col-i]]
+            break
 
 # Add water
 tick = 0
-while tick < 2:
-    tick += 1
+sources = [[0,500-min_x]]
+while tick < 300000:
+    for src in sources:
+        y_src = src[0]
+        x_src = src[1]
+        # From each water source, check all tiles below it
+        for row in range(y_src, len(grid)):
+            # If sand, fill with water stream
+            if grid[row][x_src] == ".":
+                if row+1 < len(grid) and grid[row+1][x_src] == "#":
+                    grid[row][x_src] = "~"
+                else:
+                    grid[row][x_src] = "|"
+            # If still water
+            elif grid[row][x_src] == "~":
+                settle_water(grid, row, x_src)
+            # If flowing water
+            elif grid[row][x_src] == "|":
+                if row+1 < len(grid) and grid[row+1][x_src] == "~":
+                    grid[row][x_src] = water_type(grid, row, x_src)
+                    settle_water(grid, row, x_src)
+            # If clay
+            elif grid[row][x_src] == "#":
+                break
+        tick += 1
 
+# Part 1 - count the number of tiles where water passes by
+water = 0
+for row in grid:
+    for col in row:
+        if col == "~" or col == "|":
+            water += 1
+print "Part 1: The water reaches %d tiles" % water
 
-
-
+# Part 2 - find all tiles with still water
+water = 0
+for row in grid:
+    for col in row:
+        if col == "~":
+            water += 1
+print "Part 2: There are %d tiles ow water after source dries up" % water
 
 
 
